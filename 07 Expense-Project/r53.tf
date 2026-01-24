@@ -12,7 +12,7 @@
 #     name = "www.${var.instance_names[count.index]}.${var.domain_name}"
 #     type = "A"
 #     ttl = 1
-#     records = [aws_instance.expense[count.index].private_ip]
+#     records = [output.expense[count.index].private_ip]
 #     allow_overwrite = true
 # }
 
@@ -24,10 +24,10 @@
 #   name    = "${var.instance_names[count.index]}.${var.domain_name}"
 #   type    = "A"
 #   ttl     = 300
-#   records = [aws_instance.expense[count.index].private_ip]
+#   records = [output.expense[count.index].private_ip]
 #   allow_overwrite = true
 # }
-
+#-------------------------------------------------------------------
 # resource "aws_route53_record" "expense" {
 #   count   = length(var.instance_names)
 #   zone_id = var.zone_id
@@ -87,7 +87,7 @@
 
 #   records = [aws_instance.expense[count.index].private_ip]
 # }
-    
+
 # resource "aws_route53_record" "expense" {
 #   count   = length(var.instance_names)
 
@@ -119,41 +119,41 @@
 # ----------------------------------
 # Route 53 Public Hosted Zone
 # ----------------------------------
-resource "aws_route53_zone" "expense" {
-  name = var.domain_name
-}
+# resource "aws_route53_zone" "expense" {
+#   name = var.domain_name
+# }
 
 # ----------------------------------
 # ROOT DOMAIN → FRONTEND EC2
 # jioairlines.online
 # ----------------------------------
-resource "aws_route53_record" "root" {
-  zone_id = aws_route53_zone.expense.zone_id
-  name    = var.domain_name
-  type    = "A"
-  ttl     = 300
+# resource "aws_route53_record" "root" {
+#   zone_id = aws_route53_zone.expense.zone_id
+#   name    = var.domain_name
+#   type    = "A"
+#   ttl     = 300
 
-  records = [aws_instance.expense[0].public_ip]
-}
+#   records = [aws_instance.expense[0].public_ip]
+# }
 
-# ----------------------------------
-# Subdomains: frontend / backend / mysql
-# ----------------------------------
-resource "aws_route53_record" "expense" {
-  count   = length(var.instance_names)
+# # ----------------------------------
+# # Subdomains: frontend / backend / mysql
+# # ----------------------------------
+# resource "aws_route53_record" "expense" {
+#   count   = length(var.instance_names)
 
-  zone_id = aws_route53_zone.expense.zone_id
-  name    = "${var.instance_names[count.index]}.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  allow_overwrite = true
+#   zone_id = aws_route53_zone.expense.zone_id
+#   name    = "${var.instance_names[count.index]}.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   allow_overwrite = true
 
-  records = [
-    var.instance_names[count.index] == "frontend"
-    ? aws_instance.expense[count.index].public_ip
-    : aws_instance.expense[count.index].private_ip
-  ]
-}
+#   records = [
+#     var.instance_names[count.index] == "frontend"
+#     ? aws_instance.expense[count.index].public_ip
+#     : aws_instance.expense[count.index].private_ip
+#   ]
+# }
 
 # resource "aws_route53_record" "expense" {
 #   count = length(var.instance_names)
@@ -164,4 +164,63 @@ resource "aws_route53_record" "expense" {
 #   ttl     = 1
 #   records = [aws_instance.expense[count.index].private_ip]
 #   allow_overwrite = true
+# }
+# root domain → frontend load balancer
+resource "aws_route53_record" "root" {
+  zone_id         = var.zone_id
+  name            = var.domain_name
+  type            = "A"
+  ttl             = 300
+  records         = [aws_instance.expense[0].public_ip] # frontend public IP
+  allow_overwrite = true
+}
+
+
+resource "aws_route53_record" "frontend" {
+  zone_id = var.zone_id
+  name    = "frontend.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+
+  records         = [aws_instance.expense[0].public_ip] # Assuming frontend is at index 0
+  allow_overwrite = true
+}
+
+#   resource "aws_eip" "frontend" {
+#   instance = aws_instance.expense[0].id
+
+
+# }
+
+
+resource "aws_route53_record" "backend" {
+  zone_id = var.zone_id
+  name    = "backend.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+
+  records         = [aws_instance.expense[1].private_ip] # Assuming backend is at index 1
+  allow_overwrite = true
+}
+resource "aws_route53_record" "mysql" {
+  zone_id = var.zone_id
+  name    = "mysql.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+
+  records         = [aws_instance.expense[2].private_ip] # Assuming mysql is at index 2
+  allow_overwrite = true
+}
+
+
+# resource "aws_route53_record" "root" {
+#   zone_id = var.zone_id
+#   name    = var.domain_name
+#   type    = "A"
+
+#   alias {
+#     name                   = aws_lb.frontend.dns_name
+#     zone_id                = aws_lb.frontend.zone_id
+#     evaluate_target_health = true
+#   }
 # }
